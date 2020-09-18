@@ -29,6 +29,12 @@ type FormTextInputComponent<T extends {}, K extends keyof T> = FormAnyComponent<
   (e: React.ChangeEvent<HTMLInputElement>) => void,
   (e: React.FocusEvent<HTMLInputElement>) => void
 >;
+type FormSelectComponent<T extends {}, K extends keyof T> = FormAnyComponent<
+  T,
+  K,
+  (e: React.ChangeEvent<HTMLSelectElement>) => void,
+  (e: React.FocusEvent<HTMLSelectElement>) => void
+>;
 type FormCheckboxInputComponent<T extends {}, K extends keyof T> = (prop: {
   props: {
     name: K;
@@ -48,7 +54,7 @@ type ExtendedOptions<T extends {}, K extends keyof T> = Options<
 >;
 type Option = {
   required?: boolean;
-  isInput?: boolean;
+  errorMessage?: string;
 };
 type ExtendedOption<V> = Option & {
   onChangeAdapter?: (onChange: ValueCallback<V>) => (...any: any[]) => void;
@@ -58,12 +64,13 @@ type ExtendedOption<V> = Option & {
 type Errors<T extends {}> = {
   [k in keyof T]?: string;
 };
+export type Form = ReturnType<typeof useForm>;
 
 /**
  * Use Cases:
  * - Ephemeral state - just use local state, don't really want to persist it in redux
  * - Wizard: when you have to persist state over multiple screens
- * - Need to change a value later: e.g. address,, or outside config
+ * - Need to change a value later, dependent boxes: e.g. address, or outside config
  */
 export const useForm = <T extends {}>(
   initialData: T,
@@ -78,17 +85,44 @@ export const useForm = <T extends {}>(
   };
 
   const validate = () => {
-    Object.entries(formState).forEach(([key, value]) => {
-      validateKey(key as keyof T, value as any);
-    });
-    return !Object.keys(errors).length;
+    const errorItems = Object.entries(formState)
+      .map(([key, value]) => validateKeyItem(key as keyof T, value as any))
+      .filter((a) => a);
+    const errorMap = Object.assign({}, ...errorItems);
+    setErrors(errorMap);
+    return !Object.keys(errorMap).length;
   };
   const validateKey = <K extends keyof T>(key: K, value: T[K]) => {
     if (allOptions[key]?.required && !value) {
-      setErrors({ ...errors, [key]: "Field is required" });
+      setErrors({
+        ...errors,
+        [key]: allOptions[key]?.errorMessage || "Field is required",
+      });
     } else {
       setErrors(omit(errors, key));
     }
+  };
+  const validateKeyItem = <K extends keyof T>(key: K, value: T[K]) => {
+    if (allOptions[key]?.required && !value) {
+      return { [key]: allOptions[key]?.errorMessage || "Field is required" };
+    }
+    return null;
+  };
+  const onChangeSubscriptions: { [K in keyof T]?: ValueCallback<T[K]>[] } = {};
+  const subscribeOnChange = <K extends keyof T>(
+    key: K,
+    onChange: ValueCallback<T[K]>
+  ) => (value: T[K]) => {
+    onChange(value);
+    onChangeSubscriptions[key]?.forEach((onChange) => onChange(value));
+  };
+  const onBlurSubscriptions: { [K in keyof T]?: ValueCallback<T[K]>[] } = {};
+  const subscribeOnBlur = <K extends keyof T>(
+    key: K,
+    onBlur: ValueCallback<T[K]>
+  ) => (value: T[K]) => {
+    onBlur(value);
+    onBlurSubscriptions[key]?.forEach((onBlur) => onBlur(value));
   };
 
   const createAnyItem = <K extends keyof T>(
@@ -97,17 +131,17 @@ export const useForm = <T extends {}>(
   ) => (func: FormAnyComponent<T, K>) => {
     allOptions[key] = options;
 
-    const onChangeBasic = (value: T[K]) => {
+    const onChangeBasic = subscribeOnChange(key, (value: T[K]) => {
       validateKey(key, value);
       setFormStateFn({ ...formState, [key]: value });
-    };
+    });
     const onChange = options?.onChangeAdapter
       ? options?.onChangeAdapter(onChangeBasic)
       : onChangeBasic;
 
-    const onBlurBasic = (value: T[K]) => {
+    const onBlurBasic = subscribeOnBlur(key, (value: T[K]) => {
       validateKey(key, value);
-    };
+    });
     const onBlur = options?.onBlurAdapter
       ? options?.onBlurAdapter(onBlurBasic)
       : onBlurBasic;
@@ -135,8 +169,16 @@ export const useForm = <T extends {}>(
     onBlur: ValueCallback<T[K]>
   ) => (e: React.FocusEvent<HTMLInputElement>) =>
     onBlur(e.currentTarget.value as any);
-  const createTextInputItem = <K extends keyof T>(key: K, options?: Option) => (
+  const createInputItem = <K extends keyof T>(key: K, options?: Option) => (
     func: FormTextInputComponent<T, K>
+  ) =>
+    createAnyItem(key, {
+      onChangeAdapter: inputOnChangeAdapter,
+      onBlurAdapter: inputOnBlurAdapter,
+      ...options,
+    })(func);
+  const createSelectItem = <K extends keyof T>(key: K, options?: Option) => (
+    func: FormSelectComponent<T, K>
   ) =>
     createAnyItem(key, {
       onChangeAdapter: inputOnChangeAdapter,
@@ -163,16 +205,44 @@ export const useForm = <T extends {}>(
       error: errors[key],
     });
   };
+  function handleOnChange<K extends keyof T>(
+    key: K,
+    onChange: ValueCallback<T[K]>
+  ) {
+    if (!onChangeSubscriptions[key]) {
+      onChangeSubscriptions[key] = [];
+    }
+    onChangeSubscriptions[key]?.push(onChange);
+  }
+  function handleOnBlur<K extends keyof T>(
+    key: K,
+    onBlur: ValueCallback<T[K]>
+  ) {
+    if (!onBlurSubscriptions[key]) {
+      onBlurSubscriptions[key] = [];
+    }
+    onBlurSubscriptions[key]?.push(onBlur);
+  }
 
   function getValues() {
     return formState;
   }
+  function setValues(value: T, noCallback: boolean = false) {
+    if (noCallback) {
+      return setFormState(value);
+    }
+    return setFormStateFn(value);
+  }
 
   return {
     createItem,
-    createTextInputItem,
+    createInputItem,
+    createSelectItem,
     createCheckboxInputItem,
+    handleOnChange,
+    handleOnBlur,
     getValues,
+    setValues,
     validate,
   };
 };
