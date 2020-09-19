@@ -1,5 +1,5 @@
 import React from "react";
-import { useForm } from "../useForm";
+import { useLocalForm, useControlledSubForm } from "../useForm";
 import styles from "./BasicForm.module.css";
 
 type MyFormResp = {
@@ -13,20 +13,20 @@ type MyFormResp = {
   };
   accept: boolean;
 };
+const initialValues: MyFormResp = {
+  first: "",
+  second: "",
+  third: "",
+  fourth: "",
+  name: {
+    first: "",
+    last: "",
+  },
+  accept: false,
+};
 
 export const BasicForm: React.FC = () => {
-  const initialValues: MyFormResp = {
-    first: "",
-    second: "",
-    third: "",
-    fourth: "",
-    name: {
-      first: "",
-      last: "",
-    },
-    accept: false,
-  };
-  const form = useForm(initialValues);
+  const form = useLocalForm({ initialData: initialValues });
 
   const submit = React.useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
@@ -38,32 +38,37 @@ export const BasicForm: React.FC = () => {
     },
     [form]
   );
+
   return (
     <form className={styles.BasicForm} onSubmit={submit}>
-      {form.createInputItem("first", {
+      {form.createFormItem("first", {
         required: true,
-      })(({ props, error }) => (
+        adaptor: (e: React.ChangeEvent<HTMLInputElement>) => e.target.value,
+      })(({ props, errorText }) => (
         <div className={styles.row}>
           <label htmlFor={props.name}>First*</label>
           <div className={styles.inputContainer}>
             <input id={props.name} {...props} />
-            <div className={styles.error}>{error}&nbsp;</div>
+            <div className={styles.error}>{errorText}&nbsp;</div>
           </div>
         </div>
       ))}
-      {form.createInputItem("second")(({ props, error }) => (
+      {form.createFormItem("second", {
+        adaptor: (e: React.ChangeEvent<HTMLInputElement>) => e.target.value,
+      })(({ props, errorText }) => (
         <div className={styles.row}>
           <label htmlFor={props.name}>Second</label>
           <div className={styles.inputContainer}>
             <input id={props.name} {...props} />
-            <div className={styles.error}>{error}&nbsp;</div>
+            <div className={styles.error}>{errorText}&nbsp;</div>
           </div>
         </div>
       ))}
-      {form.createSelectItem("third", {
+      {form.createFormItem("third", {
         required: true,
-        errorMessage: "Please select an option",
-      })(({ props, error }) => (
+        validationMessages: { required: () => "Please select an option" },
+        adaptor: (e: React.ChangeEvent<HTMLSelectElement>) => e.target.value,
+      })(({ props, errorText }) => (
         <div className={styles.row}>
           <label htmlFor={props.name}>Select something*</label>
           <div className={styles.inputContainer}>
@@ -76,66 +81,73 @@ export const BasicForm: React.FC = () => {
               <option value="mercedes">Mercedes</option>
               <option value="audi">Audi</option>
             </select>
-            <div className={styles.error}>{error}&nbsp;</div>
+            <div className={styles.error}>{errorText}&nbsp;</div>
           </div>
         </div>
       ))}
-      {form.createInputItem("fourth")(
-        ({ props: { onChange, value, ...props }, error }) => (
-          <div className={styles.row}>
-            <label htmlFor={props.name}>Fourth</label>
-            <div className={styles.inputContainer}>
-              <div className={styles.flexRow}>
-                <input
-                  type="radio"
-                  id={props.name + 1}
-                  name={props.name}
-                  value="first"
-                  onChange={onChange}
-                  checked={value === "first"}
-                />
-                <label htmlFor={props.name + 1}>First option</label>
-              </div>
-              <div className={styles.flexRow}>
-                <input
-                  type="radio"
-                  id={props.name + 2}
-                  name={props.name}
-                  value="second"
-                  onChange={onChange}
-                  checked={value === "second"}
-                />
-                <label htmlFor={props.name + 2}>Second option</label>
-              </div>
-              <div className={styles.flexRow}>
-                <input
-                  type="radio"
-                  id={props.name + 3}
-                  name={props.name}
-                  value="third"
-                  onChange={onChange}
-                  checked={value === "third"}
-                />
-                <label htmlFor={props.name + 3}>Third option</label>
-              </div>
-              <div className={styles.error}>{error}&nbsp;</div>
+      {form.createFormItem("fourth", {
+        adaptor: (e: React.ChangeEvent<HTMLInputElement>) => e.target.value,
+      })(({ props: { onChange, value, ...props }, errorText }) => (
+        <div className={styles.row}>
+          <label htmlFor={props.name}>Fourth</label>
+          <div className={styles.inputContainer}>
+            <div className={styles.flexRow}>
+              <input
+                type="radio"
+                id={props.name + 1}
+                name={props.name}
+                value="first"
+                onChange={onChange}
+                checked={value === "first"}
+              />
+              <label htmlFor={props.name + 1}>First option</label>
             </div>
+            <div className={styles.flexRow}>
+              <input
+                type="radio"
+                id={props.name + 2}
+                name={props.name}
+                value="second"
+                onChange={onChange}
+                checked={value === "second"}
+              />
+              <label htmlFor={props.name + 2}>Second option</label>
+            </div>
+            <div className={styles.flexRow}>
+              <input
+                type="radio"
+                id={props.name + 3}
+                name={props.name}
+                value="third"
+                onChange={onChange}
+                checked={value === "third"}
+              />
+              <label htmlFor={props.name + 3}>Third option</label>
+            </div>
+            <div className={styles.error}>{errorText}&nbsp;</div>
           </div>
-        )
-      )}
-      {form.createItem("name")(({ props: { name, ...props } }) => (
+        </div>
+      ))}
+      {form.createFormItem("name")(({ props: { name, ...props } }) => (
         <div className={styles.row}>
           <NameForm {...props} />
         </div>
       ))}
-      {form.createCheckboxInputItem("accept", {
+      {form.createFormItem("accept", {
         required: true,
-      })(({ props, error }) => (
+        adaptor: (e: React.ChangeEvent<HTMLInputElement>) =>
+          e.currentTarget.checked,
+      })(({ props: { value: checked, ...props }, errorText }) => (
         <div className={styles.row}>
           <label htmlFor={props.name}>Accept</label>
           <div className={styles.inputContainer}>
-            <input id={props.name} type="checkbox" {...props} />
-            <div className={styles.error}>{error}&nbsp;</div>
+            <input
+              id={props.name}
+              type="checkbox"
+              checked={checked}
+              {...props}
+            />
+            <div className={styles.error}>{errorText}&nbsp;</div>
           </div>
         </div>
       ))}
@@ -147,37 +159,38 @@ export const BasicForm: React.FC = () => {
 type SubForm<T extends {}, K extends keyof T> = {
   value: T[K];
   onChange: (value: T[K]) => void;
-  onBlur: (value: T[K]) => void;
+  // onBlur: (value: T[K]) => void;
 };
 type NameFormProps = SubForm<MyFormResp, "name">;
-const NameForm: React.FC<NameFormProps> = ({ value, onChange, onBlur }) => {
-  const form = useForm(value);
-  React.useEffect(() => {
-    console.log("new", form.getValues(), value);
-    // form.handleOnChange('first',
-    // form.setValues(value);
-  }, [form, value]);
+const NameForm: React.FC<NameFormProps> = ({ value, onChange }) => {
+  const form = useControlledSubForm({
+    values: value,
+    onChange,
+  });
+
   return (
     <div>
-      {form.createInputItem("first", {
+      {form.createFormItem("first", {
         required: true,
-      })(({ props, error }) => (
+        adaptor: (e: React.ChangeEvent<HTMLInputElement>) => e.target.value,
+      })(({ props, errorText }) => (
         <div className={styles.row}>
           <label htmlFor={props.name}>First*</label>
           <div className={styles.inputContainer}>
             <input id={props.name} {...props} />
-            <div className={styles.error}>{error}&nbsp;</div>
+            <div className={styles.error}>{errorText}&nbsp;</div>
           </div>
         </div>
       ))}
-      {form.createInputItem("last", {
+      {form.createFormItem("last", {
         required: true,
-      })(({ props, error }) => (
+        adaptor: (e: React.ChangeEvent<HTMLInputElement>) => e.target.value,
+      })(({ props, errorText }) => (
         <div className={styles.row}>
           <label htmlFor={props.name}>Last*</label>
           <div className={styles.inputContainer}>
             <input id={props.name} {...props} />
-            <div className={styles.error}>{error}&nbsp;</div>
+            <div className={styles.error}>{errorText}&nbsp;</div>
           </div>
         </div>
       ))}

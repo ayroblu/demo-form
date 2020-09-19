@@ -1,5 +1,5 @@
 import React from "react";
-import { useControlledForm } from "../useNewForm";
+import { useControlledForm } from "../useForm";
 import styles from "./NewForm.module.css";
 
 type MyFormResp = {
