@@ -7,7 +7,7 @@ type MyFormResp = {
   myOptional: string;
   subForm: {
     subRequired: string;
-    subOptionaln: string;
+    subOptional: string;
   };
   accept: boolean;
 };
@@ -16,7 +16,7 @@ const initialValues: MyFormResp = {
   myOptional: "",
   subForm: {
     subRequired: "",
-    subOptionaln: "",
+    subOptional: "",
   },
   accept: false,
 };
@@ -34,13 +34,10 @@ export const NewForm: React.FC = () => {
   return (
     <section>
       <div>
-        {form.createFormItem(
-          "myRequired",
-          {
-            required: true,
-          },
-          (e: React.ChangeEvent<HTMLInputElement>) => e.target.value
-        )(({ props, errorText }) => (
+        {form.createFormItem("myRequired", {
+          required: true,
+          adaptor: (e: React.ChangeEvent<HTMLInputElement>) => e.target.value,
+        })(({ props, errorText }) => (
           <div className={styles.row}>
             <label htmlFor={props.name}>My Required*</label>
             <div className={styles.inputContainer}>
@@ -49,11 +46,54 @@ export const NewForm: React.FC = () => {
             </div>
           </div>
         ))}
-        {form.createFormItem(
-          "myOptional",
-          {},
-          (e: React.ChangeEvent<HTMLInputElement>) => e.target.value
-        )(({ props, errorText }) => (
+        {form.createFormItem("myOptional", {
+          adaptor: (e: React.ChangeEvent<HTMLInputElement>) => e.target.value,
+        })(({ props, errorText }) => (
+          <div className={styles.row}>
+            <label htmlFor={props.name}>My Optional</label>
+            <div className={styles.inputContainer}>
+              <input id={props.name} {...props} />
+              <div className={styles.error}>{errorText}&nbsp;</div>
+            </div>
+          </div>
+        ))}
+
+        <h3>SubForm</h3>
+        <SubForm
+          values={formState.subForm}
+          onChange={(subForm) => setFormState({ ...formState, subForm })}
+        />
+      </div>
+    </section>
+  );
+};
+type SubFormProps = {
+  values: MyFormResp["subForm"];
+  onChange: (value: MyFormResp["subForm"]) => void;
+};
+const SubForm: React.FC<SubFormProps> = ({ values, onChange }) => {
+  const form = useControlledForm({
+    values,
+    onChange: (value) => onChange({ ...values, ...value }),
+  });
+  return (
+    <section>
+      <div>
+        {form.createFormItem("subRequired", {
+          required: true,
+          adaptor: (e: React.ChangeEvent<HTMLInputElement>) => e.target.value,
+        })(({ props, errorText }) => (
+          <div className={styles.row}>
+            <label htmlFor={props.name}>My Required*</label>
+            <div className={styles.inputContainer}>
+              <input id={props.name} {...props} />
+              <div className={styles.error}>{errorText}&nbsp;</div>
+            </div>
+          </div>
+        ))}
+        {form.createFormItem("subOptional", {
+          adaptor: (e: React.ChangeEvent<HTMLInputElement>) => e.target.value,
+        })(({ props, errorText }) => (
           <div className={styles.row}>
             <label htmlFor={props.name}>My Optional</label>
             <div className={styles.inputContainer}>

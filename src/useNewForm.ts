@@ -51,8 +51,10 @@ export const useControlledForm = <T extends {}>({
 
   const createFormItem = <K extends keyof T, A = undefined>(
     key: K,
-    params: ValidationParams<T, K> = {},
-    adaptor?: (input: A) => T[K]
+    {
+      adaptor,
+      ...validationParams
+    }: ValidationParams<T, K> & { adaptor?: (input: A) => T[K] } = {}
   ) => (
     formItem: (
       params: typeof adaptor extends undefined
@@ -60,7 +62,11 @@ export const useControlledForm = <T extends {}>({
         : FormItemParams<T, K, A>
     ) => React.ReactNode
   ) => {
-    const getErrorText = getErrorTextFn<T, K>({ name: key, ...params });
+    const getErrorText = getErrorTextFn<T, K>({
+      name: key,
+      ...validationParams,
+    });
+
     return formItem({
       props: {
         name: key,
@@ -79,6 +85,7 @@ export const useControlledForm = <T extends {}>({
     createFormItem,
   };
 };
+
 const getErrorTextFn = <T extends {}, K extends keyof T>({
   name,
   required,
