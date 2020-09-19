@@ -157,7 +157,6 @@ const NameForm: React.FC<NameFormProps> = ({ value, onChange, onBlur }) => {
     // form.handleOnChange('first',
     // form.setValues(value);
   }, [form, value]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   return (
     <div>
       {form.createInputItem("first", {
