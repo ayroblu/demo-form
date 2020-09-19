@@ -2,13 +2,14 @@ import React from "react";
 import { ObjectKeys } from "./utils";
 import {
   ControlledParams,
-  FormItemParams,
-  ValidationParams,
   NamedValidationParams,
   LocalParams,
   ControlledSubParams,
+  AdaptedFormItemParams,
+  AdaptedValidationParams,
 } from "./useFormTypes";
 import { useIsMounted } from "./hooks";
+import { validator } from "./validators";
 
 /**
  * Cases: Required (localvalidation), optional, async validation, custom validation messages
@@ -19,6 +20,9 @@ import { useIsMounted } from "./hooks";
  * Must implement:
  * - Data type passed in, initial data
  * - create a form item
+ * - onBlur for focus then unfocus for "required"
+ *
+ * Does not support onChange with multiple params
  */
 export const useControlledForm = <T extends {}>({
   values,
@@ -32,19 +36,12 @@ export const useControlledForm = <T extends {}>({
     {}
   );
 
-  type AdaptedFormItemParams<
-    K extends keyof T,
-    A = undefined
-  > = A extends undefined
-    ? FormItemParams<T, K, T[K]>
-    : FormItemParams<T, K, A>;
   const createFormItem = <K extends keyof T, A = undefined>(
     key: K,
-    {
-      adaptor,
-      ...validationParams
-    }: ValidationParams<T, K> & { adaptor?: (input: A) => T[K] } = {}
-  ) => (formItem: (params: AdaptedFormItemParams<K, A>) => React.ReactNode) => {
+    { adaptor, ...validationParams }: AdaptedValidationParams<T, K, A> = {}
+  ) => (
+    formItem: (params: AdaptedFormItemParams<T, K, A>) => React.ReactNode
+  ) => {
     const getErrorText = getErrorTextFn<T, K>({
       name: key,
       ...validationParams,
@@ -76,8 +73,8 @@ export const useControlledForm = <T extends {}>({
     }
 
     const onChangeHandler = (val: A extends undefined ? T[K] : A) => {
-      // https://stackoverflow.com/questions/60456679/assignment-of-generic-object-to-partial-type
       const value = adaptor ? adaptor(val as A) : val;
+      // https://stackoverflow.com/questions/60456679/assignment-of-generic-object-to-partial-type
       onChange({ [key]: value } as Pick<T, K> & Partial<T>);
       setTouched({ ...touched, [key]: true });
     };
@@ -89,7 +86,7 @@ export const useControlledForm = <T extends {}>({
         onBlur: onChangeHandler,
       },
       errorText: (touched[key] && errors[key]) || null,
-    } as AdaptedFormItemParams<K, A>);
+    } as AdaptedFormItemParams<T, K, A>);
   };
   const validate = () => {
     const allTouched = ObjectKeys(values).reduce<
@@ -113,10 +110,15 @@ const getErrorTextFn = <T extends {}, K extends keyof T>({
   validationMessages,
   custom,
   customAsync,
+  ...typeParams
 }: NamedValidationParams<T, K>) => (value: T[K]) => {
   if (required && !value) {
     return validationMessages?.required?.(name) ?? `${name} is required`;
   } else {
+    if (typeof value === "string") {
+      const result = validator(typeParams, value);
+      if (result) return result;
+    }
     if (custom) {
       const result = custom(value);
       if (result) return result;
